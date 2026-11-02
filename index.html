@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Tablero interactivo de ejecución de recursos del Sistema General de Regalías en la Región Caribe 1."
+    />
+    <title>Visor de Ejecución SGR – Región Caribe 1</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Visor de Ejecución SGR, inicio">
+          <span class="brand-mark" aria-hidden="true">SGR</span>
+          <span class="brand-copy">
+            <span class="brand-name">Observatorio de recursos</span>
+            <span class="brand-region">Región Caribe 1</span>
+          </span>
+        </a>
+        <div class="topbar-right">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="data-status" class="data-status" role="status">Preparando visor...</span>
+          <button id="theme-toggle" class="theme-button" type="button" aria-pressed="false">
+            🌗 Tema
+          </button>
+        </div>
+      </header>
+
+      <main>
+        <section class="main-panel" aria-label="Panel principal y filtros">
+          <div class="filter-heading">
+            <div>
+              <p class="eyebrow">SISTEMA GENERAL DE REGALÍAS · 2025–2026</p>
+              <h1>Visor de Ejecución SGR <span>– Región Caribe 1</span></h1>
+              <p class="intro-copy">
+                Filtra los recursos por departamento y municipio para consultar la ejecución
+                presupuestal de la región.
+              </p>
+            </div>
+          </div>
+          <div class="filter-section">
+            <div class="filter-heading filter-subheading">
+              <div>
+                <span class="section-kicker">EXPLORAR DATOS</span>
+                <h2>Filtros</h2>
+              </div>
+              <button id="clear-filters" class="text-button" type="button">Limpiar filtros</button>
+            </div>
+            <div class="filter-controls">
+              <label class="filter-field">
+                <span>Departamento</span>
+                <select id="department-filter" disabled>
+                  <option value="">Todos los departamentos</option>
+                </select>
+              </label>
+              <label class="filter-field">
+                <span>Municipio</span>
+                <select id="municipality-filter" disabled>
+                  <option value="">Todos los municipios</option>
+                </select>
+              </label>
+              <div class="filter-note">
+                <span class="filter-note-icon" aria-hidden="true">⌕</span>
+                <span id="filter-summary">Cargando datos...</span>
+              </div>
+            </div>
+          </div>
+          <p id="error-message" class="error-message" role="alert" hidden></p>
+        </section>
+
+        <nav class="view-tabs" role="tablist" aria-label="Vistas del visor">
+          <button
+            id="dashboard-tab"
+            class="view-tab is-active"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            aria-controls="dashboard-view"
+            data-tab="dashboard"
+          >
+            📋 Ejecución por Concepto
+          </button>
+          <button
+            id="funding-tab"
+            class="view-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="funding-view"
+            data-tab="funding"
+          >
+            💰 Fuentes de Financiación
+          </button>
+          <button
+            id="ranking-tab"
+            class="view-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="ranking-view"
+            data-tab="ranking"
+          >
+            🏆 Rankings
+          </button>
+          <button
+            id="balance-tab"
+            class="view-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="balance-view"
+            data-tab="balance"
+            tabindex="-1"
+          >
+            ⚖️ Balance por Fuentes
+          </button>
+        </nav>
+
+        <div id="dashboard-view" class="tab-panel" role="tabpanel" aria-labelledby="dashboard-tab">
+        <section class="metrics-panel panel" aria-label="Indicadores financieros">
+          <div class="panel-heading">
+            <div>
+              <span class="section-kicker">RESUMEN FINANCIERO</span>
+              <h2>Presupuesto y asignación</h2>
+            </div>
+            <span class="chart-caption">Porcentajes calculados sobre el presupuesto de inversión</span>
+          </div>
+          <div class="metrics-grid">
+            <article class="metric-card">
+              <div class="metric-topline">
+                <span class="metric-label">Presupuesto de inversión</span>
+                <span class="metric-icon" aria-hidden="true">▤</span>
+              </div>
+              <p id="budget-value" class="metric-value">—</p>
+              <div class="metric-progress">
+                <span id="budget-percent" class="metric-percent">100%</span>
+                <span class="metric-footnote">Base de cálculo</span>
+              </div>
+              <div class="progress-track" aria-label="Presupuesto de inversión, 100 por ciento">
+                <span id="budget-bar" class="progress-fill"></span>
+              </div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-topline">
+                <span class="metric-label">Recursos asignados</span>
+                <span class="metric-icon icon-green" aria-hidden="true">↗</span>
+              </div>
+              <p id="assigned-value" class="metric-value">—</p>
+              <div class="metric-progress">
+                <span id="assigned-percent" class="metric-percent percent-green">—</span>
+                <span class="metric-footnote">del presupuesto</span>
+              </div>
+              <div class="progress-track" aria-label="Porcentaje de recursos asignados">
+                <span id="assigned-bar" class="progress-fill progress-green"></span>
+              </div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-topline">
+                <span class="metric-label">Saldo pendiente de asignación</span>
+                <span class="metric-icon icon-amber" aria-hidden="true">◷</span>
+              </div>
+              <p id="balance-value" class="metric-value">—</p>
+              <div class="metric-progress">
+                <span id="balance-percent" class="metric-percent percent-amber">—</span>
+                <span class="metric-footnote">del presupuesto</span>
+              </div>
+              <div class="progress-track" aria-label="Porcentaje pendiente de asignación">
+                <span id="balance-bar" class="progress-fill progress-amber"></span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="charts-grid" aria-label="Gráficos de ejecución y distribución">
+          <article class="panel chart-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="section-kicker">EJECUCIÓN TERRITORIAL</span>
+                <h2>Ejecución por departamento</h2>
+              </div>
+              <span class="chart-caption">Valores en COP</span>
+            </div>
+            <div id="department-chart-wrap" class="chart-wrap">
+              <canvas id="department-chart" aria-label="Ejecución y saldo pendiente por departamento"></canvas>
+            </div>
+          </article>
+          <article class="panel chart-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="section-kicker">DISTRIBUCIÓN DEL SALDO PENDIENTE</span>
+                <h2>Distribución por concepto de gasto</h2>
+              </div>
+              <span class="chart-caption">Saldo pendiente · Valores en COP</span>
+            </div>
+            <div class="concept-distribution">
+              <div id="concept-chart-wrap" class="concept-donut-wrap">
+                <canvas id="concept-chart" aria-label="Distribución del saldo pendiente por concepto de gasto"></canvas>
+              </div>
+              <div id="concept-legend" class="concept-legend" aria-label="Detalle del saldo pendiente por concepto de gasto"></div>
+            </div>
+          </article>
+        </section>
+
+        <section class="detail-section" aria-label="Detalle por concepto de gasto">
+          <div class="panel panel-heading detail-heading">
+            <div>
+              <span class="section-kicker">REGISTROS Y DISTRIBUCIÓN TERRITORIAL</span>
+              <h2>Detalle por concepto de gasto</h2>
+            </div>
+            <span id="table-count" class="table-count">0 registros</span>
+          </div>
+          <section class="panel table-panel">
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Departamento</th>
+                    <th>Municipio</th>
+                    <th>Tipo</th>
+                    <th>Concepto de gasto</th>
+                    <th class="numeric">Presupuesto</th>
+                    <th class="numeric">Asignado</th>
+                    <th class="numeric">Pendiente</th>
+                    <th>% asignado</th>
+                  </tr>
+                </thead>
+                <tbody id="records-body">
+                  <tr class="table-empty">
+                    <td colspan="8">Carga el archivo Excel para consultar los registros.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer">
+              <span id="page-summary">—</span>
+              <div class="pagination">
+                <button id="previous-page" type="button" aria-label="Página anterior" disabled>←</button>
+                <button id="next-page" type="button" aria-label="Página siguiente" disabled>→</button>
+              </div>
+            </div>
+          </section>
+        </section>
+        </div>
+
+        <section
+          id="funding-view"
+          class="tab-panel analysis-view"
+          role="tabpanel"
+          aria-labelledby="funding-tab"
+          hidden
+        >
+          <div class="panel analysis-intro">
+            <span class="section-kicker">FINANCIACIÓN Y COMPOSICIÓN</span>
+            <h2>Fuentes de financiación</h2>
+            <p class="analysis-description">
+              Consulta presupuesto, asignaciones y saldo pendiente por fondo y departamento.
+              El resto de gráficos y tablas responde a los filtros seleccionados.
+            </p>
+          </div>
+          <section class="panel analysis-table-panel">
+            <div class="panel-heading table-heading">
+              <div>
+                <span class="section-kicker">VALORES POR FUENTE</span>
+                <h2>Saldo disponible por fuente de financiación</h2>
+              </div>
+              <div class="metric-tabs" role="group" aria-label="Métrica del gráfico por fuente">
+                <button class="metric-tab is-active" type="button" data-funding-metric="balance">Saldo</button>
+                <button class="metric-tab" type="button" data-funding-metric="budget">Presupuesto</button>
+                <button class="metric-tab" type="button" data-funding-metric="assigned">Asignados</button>
+              </div>
+            </div>
+            <div class="chart-wrap analysis-chart-wrap">
+              <canvas id="fund-source-chart" aria-label="Valores por fuente de financiación y departamento"></canvas>
+            </div>
+          </section>
+          <div class="analysis-grid">
+            <section class="panel analysis-table-panel">
+              <div class="panel-heading table-heading">
+                <div>
+                  <span class="section-kicker">COMPOSICIÓN DEL PRESUPUESTO</span>
+                  <h2>Por concepto de gasto</h2>
+                </div>
+                <span id="concept-count" class="table-count">0 conceptos</span>
+              </div>
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Concepto de gasto</th>
+                      <th class="numeric">Presupuesto</th>
+                      <th class="numeric">% del total</th>
+                    </tr>
+                  </thead>
+                  <tbody id="composition-body">
+                    <tr class="table-empty">
+                      <td colspan="3">Carga el archivo Excel para consultar la composición.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+            <section class="panel analysis-table-panel">
+              <div class="panel-heading table-heading">
+                <div>
+                  <span class="section-kicker">EJECUCIÓN POR FUENTE</span>
+                  <h2>Porcentaje asignado</h2>
+                </div>
+              </div>
+              <div class="chart-wrap analysis-chart-wrap">
+                <canvas id="fund-execution-chart" aria-label="Porcentaje asignado por fuente de financiación"></canvas>
+              </div>
+            </section>
+          </div>
+          <section class="panel analysis-table-panel">
+            <div class="panel-heading table-heading">
+              <div>
+                <span class="section-kicker">DETALLE POR FUENTE Y DEPARTAMENTO</span>
+                <h2>Recursos por fondo</h2>
+              </div>
+              <span id="funding-count" class="table-count">0 registros</span>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fondo</th>
+                    <th>Departamento</th>
+                    <th class="numeric">Presupuesto</th>
+                    <th class="numeric">Asignado</th>
+                    <th class="numeric">Saldo disponible</th>
+                    <th class="numeric">% asignado</th>
+                  </tr>
+                </thead>
+                <tbody id="funding-body">
+                  <tr class="table-empty"><td colspan="6">Carga el archivo Excel para consultar las fuentes.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section
+          id="ranking-view"
+          class="tab-panel analysis-view"
+          role="tabpanel"
+          aria-labelledby="ranking-tab"
+          hidden
+        >
+          <div class="panel analysis-intro">
+            <span class="section-kicker">TOP 15 · MUNICIPIOS Y DEPARTAMENTOS</span>
+            <h2>Rankings</h2>
+            <p class="analysis-description">
+              Los valores se consolidan por territorio y se actualizan con los filtros seleccionados.
+              Los menores recursos aprobados incluyen valores en cero.
+            </p>
+          </div>
+          <div class="ranking-section-heading">
+            <span class="ranking-badge">🏙 Municipios</span>
+            <span>Ranking por municipio — recursos del SGR</span>
+          </div>
+          <div class="ranking-grid">
+            <section class="panel analysis-table-panel">
+              <div class="panel-heading table-heading">
+                <div>
+                  <span class="section-kicker">MAYOR SALDO</span>
+                  <h2>Mayor saldo pendiente</h2>
+                </div>
+              </div>
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Departamento</th>
+                      <th>Municipio</th>
+                      <th class="numeric">Saldo pendiente</th>
+                    </tr>
+                  </thead>
+                  <tbody id="highest-balance-body">
+                    <tr class="table-empty"><td colspan="4">Carga el archivo Excel.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+            <section class="panel analysis-table-panel">
+              <div class="panel-heading table-heading">
+                <div>
+                  <span class="section-kicker">MAYOR RECURSO APROBADO</span>
+                  <h2>Mayor recurso aprobado</h2>
+                </div>
+              </div>
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Departamento</th>
+                      <th>Municipio</th>
+                      <th class="numeric">Recurso aprobado</th>
+                    </tr>
+                  </thead>
+                  <tbody id="highest-approved-body">
+                    <tr class="table-empty"><td colspan="4">Carga el archivo Excel.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+            <section class="panel analysis-table-panel">
+              <div class="panel-heading table-heading">
+                <div>
+                  <span class="section-kicker">MENOR RECURSO APROBADO</span>
+                  <h2>Menor recurso aprobado</h2>
+                </div>
+              </div>
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Departamento</th>
+                      <th>Municipio</th>
+                      <th class="numeric">Recurso aprobado</th>
+                    </tr>
+                  </thead>
+                  <tbody id="lowest-approved-body">
+                    <tr class="table-empty"><td colspan="4">Carga el archivo Excel.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+          <div class="ranking-section-heading">
+            <span class="ranking-badge ranking-badge-department">🏛 Departamentos</span>
+            <span>Ranking departamental — recursos del SGR</span>
+          </div>
+          <div class="ranking-grid">
+            <section class="panel analysis-table-panel">
+              <div class="panel-heading table-heading">
+                <div>
+                  <span class="section-kicker">MAYOR SALDO</span>
+                  <h2>Mayor saldo pendiente</h2>
+                </div>
+              </div>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>#</th><th>Departamento</th><th class="numeric">Saldo pendiente</th></tr></thead>
+                  <tbody id="department-highest-balance-body">
+                    <tr class="table-empty"><td colspan="3">Carga el archivo Excel.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+            <section class="panel analysis-table-panel">
+              <div class="panel-heading table-heading">
+                <div>
+                  <span class="section-kicker">MAYOR RECURSO APROBADO</span>
+                  <h2>Mayor recurso aprobado</h2>
+                </div>
+              </div>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>#</th><th>Departamento</th><th class="numeric">Recurso aprobado</th></tr></thead>
+                  <tbody id="department-highest-approved-body">
+                    <tr class="table-empty"><td colspan="3">Carga el archivo Excel.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+            <section class="panel analysis-table-panel">
+              <div class="panel-heading table-heading">
+                <div>
+                  <span class="section-kicker">MENOR RECURSO APROBADO</span>
+                  <h2>Menor recurso aprobado</h2>
+                </div>
+              </div>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>#</th><th>Departamento</th><th class="numeric">Recurso aprobado</th></tr></thead>
+                  <tbody id="department-lowest-approved-body">
+                    <tr class="table-empty"><td colspan="3">Carga el archivo Excel.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section
+          id="balance-view"
+          class="tab-panel analysis-view"
+          role="tabpanel"
+          aria-labelledby="balance-tab"
+          hidden
+        >
+          <div class="panel analysis-intro">
+            <span class="section-kicker">PRESUPUESTO Y ASIGNACIÓN</span>
+            <h2>Balance por fuentes</h2>
+            <p class="analysis-description">
+              Compara presupuesto, recursos aprobados y saldo pendiente por fondo. Los gráficos
+              reflejan la selección territorial vigente.
+            </p>
+          </div>
+          <section class="panel analysis-table-panel">
+            <div class="panel-heading table-heading">
+              <div>
+                <span class="section-kicker">BALANCE FINANCIERO</span>
+                <h2>Presupuesto vs. asignado vs. saldo pendiente</h2>
+              </div>
+            </div>
+            <div class="chart-wrap analysis-chart-wrap">
+              <canvas id="balance-source-chart" aria-label="Balance de presupuesto, asignado y saldo por fuente"></canvas>
+            </div>
+          </section>
+          <div class="analysis-grid">
+            <section class="panel analysis-table-panel">
+              <div class="panel-heading table-heading">
+                <div>
+                  <span class="section-kicker">EJECUCIÓN</span>
+                  <h2>Porcentaje de ejecución por fuente</h2>
+                </div>
+              </div>
+              <div class="chart-wrap analysis-chart-wrap">
+                <canvas id="balance-execution-chart" aria-label="Porcentaje de ejecución por fondo"></canvas>
+              </div>
+            </section>
+            <section class="panel analysis-table-panel">
+              <div class="panel-heading table-heading">
+                <div>
+                  <span class="section-kicker">SALDO PENDIENTE</span>
+                  <h2>Por departamento y fuente</h2>
+                </div>
+              </div>
+              <div class="chart-wrap analysis-chart-wrap">
+                <canvas id="balance-department-chart" aria-label="Saldo pendiente por departamento y fuente"></canvas>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <span>Visor de Ejecución SGR · Región Caribe 1</span>
+        <span>Datos procesados localmente en tu navegador</span>
+      </footer>
+    </div>
+  </body>
+</html>
