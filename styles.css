@@ -72,18 +72,12 @@ select {
   text-decoration: none;
 }
 
-.brand-mark {
-  display: grid;
-  width: 40px;
-  height: 40px;
-  place-items: center;
-  border-radius: 11px;
-  background: rgb(255 255 255 / 12%);
-  color: var(--amber);
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+.brand-logo {
+  display: block;
+  width: 110px;
+  height: 50px;
+  flex: 0 0 auto;
+  object-fit: contain;
 }
 
 .brand-copy {
@@ -360,6 +354,18 @@ h1 span {
   gap: 5px;
 }
 
+.ranking-indicator {
+  display: grid;
+  gap: 2px;
+}
+
+.ranking-indicator-label {
+  color: #78869d;
+  font-size: 9px;
+  line-height: 1.2;
+  white-space: normal;
+}
+
 .ranking-balance-track {
   display: block;
   width: 100%;
@@ -578,6 +584,7 @@ h1 span {
 
 .metric-progress {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 7px;
   min-height: 18px;
@@ -589,10 +596,6 @@ h1 span {
   font-family: inherit;
   font-size: 13px;
   font-weight: 800;
-}
-
-.metric-percent.percent-green {
-  color: var(--green);
 }
 
 .metric-percent.percent-amber {
@@ -613,10 +616,6 @@ h1 span {
   height: 100%;
   border-radius: inherit;
   transition: width 220ms ease;
-}
-
-.progress-green {
-  background: var(--green);
 }
 
 .progress-amber {
@@ -723,6 +722,35 @@ h1 span {
   color: var(--muted);
   font-size: 10px;
   font-variant-numeric: tabular-nums;
+}
+
+#fund-composition-legend .concept-legend-name {
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+}
+
+.fund-source-label {
+  display: inline-flex;
+  min-width: 250px;
+  align-items: flex-start;
+  gap: 7px;
+  white-space: normal;
+}
+
+.fund-source-swatch {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  margin-top: 3px;
+  border-radius: 50%;
+  background: var(--fund-color);
+}
+
+.concept-legend-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .empty-chart {
@@ -838,15 +866,54 @@ td.numeric {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #3e9a80;
 }
 
 .table-progress-label {
-  min-width: 40px;
+  min-width: 88px;
   color: #526573;
   font-size: 10px;
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+.execution-critical {
+  background-color: #dc3545;
+}
+
+.execution-low {
+  background-color: #f28c28;
+}
+
+.execution-medium {
+  background-color: #f4c542;
+}
+
+.execution-good {
+  background-color: #8bcf8b;
+}
+
+.execution-high {
+  background-color: #1b7a4b;
+}
+
+.execution-text-critical {
+  color: #b42332;
+}
+
+.execution-text-low {
+  color: #a85600;
+}
+
+.execution-text-medium {
+  color: #8a6a00;
+}
+
+.execution-text-good {
+  color: #3c763d;
+}
+
+.execution-text-high {
+  color: #1b7a4b;
 }
 
 .table-empty td {

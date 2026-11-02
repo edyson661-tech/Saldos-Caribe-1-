@@ -16,10 +16,10 @@
   <body>
     <div class="app-shell">
       <header class="topbar">
-        <a class="brand" href="#" aria-label="Visor de Ejecución SGR, inicio">
-          <span class="brand-mark" aria-hidden="true">SGR</span>
+        <a class="brand" href="#" aria-label="Visor de saldos SGR, inicio">
+          <img class="brand-logo" src="assets/sgr-logo.png" alt="Sistema General de Regalías" />
           <span class="brand-copy">
-            <span class="brand-name">Observatorio de recursos</span>
+            <span class="brand-name">Visor de saldos</span>
             <span class="brand-region">Región Caribe 1</span>
           </span>
         </a>
@@ -153,11 +153,11 @@
               </div>
               <p id="assigned-value" class="metric-value">—</p>
               <div class="metric-progress">
-                <span id="assigned-percent" class="metric-percent percent-green">—</span>
+                <span id="assigned-percent" class="metric-percent">—</span>
                 <span class="metric-footnote">del presupuesto</span>
               </div>
               <div class="progress-track" aria-label="Porcentaje de recursos asignados">
-                <span id="assigned-bar" class="progress-fill progress-green"></span>
+                <span id="assigned-bar" class="progress-fill"></span>
               </div>
             </article>
             <article class="metric-card">
@@ -255,19 +255,10 @@
           aria-labelledby="funding-tab"
           hidden
         >
-          <div class="panel analysis-intro">
-            <span class="section-kicker">FINANCIACIÓN Y COMPOSICIÓN</span>
-            <h2>Fuentes de financiación</h2>
-            <p class="analysis-description">
-              Consulta presupuesto, asignaciones y saldo pendiente por fondo y departamento.
-              El resto de gráficos y tablas responde a los filtros seleccionados.
-            </p>
-          </div>
           <section class="panel analysis-table-panel">
             <div class="panel-heading table-heading">
               <div>
-                <span class="section-kicker">VALORES POR FUENTE</span>
-                <h2>Saldo disponible por fuente de financiación</h2>
+                <span class="section-kicker">SALDO DISPONIBLE POR FUENTE DE FINANCIACIÓN — POR DEPARTAMENTO</span>
               </div>
               <div class="metric-tabs" role="group" aria-label="Métrica del gráfico por fuente">
                 <button class="metric-tab is-active" type="button" data-funding-metric="balance">Saldo</button>
@@ -283,33 +274,21 @@
             <section class="panel analysis-table-panel">
               <div class="panel-heading table-heading">
                 <div>
-                  <span class="section-kicker">COMPOSICIÓN DEL PRESUPUESTO</span>
-                  <h2>Por concepto de gasto</h2>
+                  <span class="section-kicker">COMPOSICIÓN DEL PRESUPUESTO POR FUENTE</span>
                 </div>
-                <span id="concept-count" class="table-count">0 conceptos</span>
+                <span id="fund-count" class="table-count">0 fuentes</span>
               </div>
-              <div class="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Concepto de gasto</th>
-                      <th class="numeric">Presupuesto</th>
-                      <th class="numeric">% del total</th>
-                    </tr>
-                  </thead>
-                  <tbody id="composition-body">
-                    <tr class="table-empty">
-                      <td colspan="3">Carga el archivo Excel para consultar la composición.</td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div class="concept-distribution">
+                <div id="fund-composition-chart-wrap" class="concept-donut-wrap">
+                  <canvas id="fund-composition-chart" aria-label="Composición del presupuesto de inversión por fuente de financiación"></canvas>
+                </div>
+                <div id="fund-composition-legend" class="concept-legend" aria-label="Presupuesto y participación por fuente de financiación"></div>
               </div>
             </section>
             <section class="panel analysis-table-panel">
               <div class="panel-heading table-heading">
                 <div>
-                  <span class="section-kicker">EJECUCIÓN POR FUENTE</span>
-                  <h2>Porcentaje asignado</h2>
+                  <span class="section-kicker">EJECUCIÓN POR FUENTE (%)</span>
                 </div>
               </div>
               <div class="chart-wrap analysis-chart-wrap">
@@ -320,8 +299,7 @@
           <section class="panel analysis-table-panel">
             <div class="panel-heading table-heading">
               <div>
-                <span class="section-kicker">DETALLE POR FUENTE Y DEPARTAMENTO</span>
-                <h2>Recursos por fondo</h2>
+                <h2>Detalle por fuente</h2>
               </div>
               <span id="funding-count" class="table-count">0 registros</span>
             </div>
@@ -329,7 +307,7 @@
               <table>
                 <thead>
                   <tr>
-                    <th>Fondo</th>
+                    <th>Fuente</th>
                     <th>Departamento</th>
                     <th class="numeric">Presupuesto</th>
                     <th class="numeric">Asignado</th>
@@ -498,49 +476,16 @@
           aria-labelledby="balance-tab"
           hidden
         >
-          <div class="panel analysis-intro">
-            <span class="section-kicker">PRESUPUESTO Y ASIGNACIÓN</span>
-            <h2>Balance por fuentes</h2>
-            <p class="analysis-description">
-              Compara presupuesto, recursos aprobados y saldo pendiente por fondo. Los gráficos
-              reflejan la selección territorial vigente.
-            </p>
-          </div>
           <section class="panel analysis-table-panel">
             <div class="panel-heading table-heading">
               <div>
-                <span class="section-kicker">BALANCE FINANCIERO</span>
-                <h2>Presupuesto vs. asignado vs. saldo pendiente</h2>
+                <span class="section-kicker">BALANCE PRESUPUESTO VS. ASIGNADOS VS. SALDO PENDIENTE POR FUENTE</span>
               </div>
             </div>
-            <div class="chart-wrap analysis-chart-wrap">
+            <div class="chart-wrap balance-chart-wrap">
               <canvas id="balance-source-chart" aria-label="Balance de presupuesto, asignado y saldo por fuente"></canvas>
             </div>
           </section>
-          <div class="analysis-grid">
-            <section class="panel analysis-table-panel">
-              <div class="panel-heading table-heading">
-                <div>
-                  <span class="section-kicker">EJECUCIÓN</span>
-                  <h2>Porcentaje de ejecución por fuente</h2>
-                </div>
-              </div>
-              <div class="chart-wrap analysis-chart-wrap">
-                <canvas id="balance-execution-chart" aria-label="Porcentaje de ejecución por fondo"></canvas>
-              </div>
-            </section>
-            <section class="panel analysis-table-panel">
-              <div class="panel-heading table-heading">
-                <div>
-                  <span class="section-kicker">SALDO PENDIENTE</span>
-                  <h2>Por departamento y fuente</h2>
-                </div>
-              </div>
-              <div class="chart-wrap analysis-chart-wrap">
-                <canvas id="balance-department-chart" aria-label="Saldo pendiente por departamento y fuente"></canvas>
-              </div>
-            </section>
-          </div>
         </section>
       </main>
 

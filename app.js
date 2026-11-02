@@ -43,8 +43,10 @@ const elements = {
   conceptLegend: document.querySelector("#concept-legend"),
   fundingBody: document.querySelector("#funding-body"),
   fundingCount: document.querySelector("#funding-count"),
-  compositionBody: document.querySelector("#composition-body"),
-  conceptCount: document.querySelector("#concept-count"),
+  fundCompositionChart: document.querySelector("#fund-composition-chart"),
+  fundCompositionChartWrap: document.querySelector("#fund-composition-chart-wrap"),
+  fundCompositionLegend: document.querySelector("#fund-composition-legend"),
+  fundCount: document.querySelector("#fund-count"),
   highestBalanceBody: document.querySelector("#highest-balance-body"),
   highestApprovedBody: document.querySelector("#highest-approved-body"),
   lowestApprovedBody: document.querySelector("#lowest-approved-body"),
@@ -54,8 +56,6 @@ const elements = {
   fundSourceChart: document.querySelector("#fund-source-chart"),
   fundExecutionChart: document.querySelector("#fund-execution-chart"),
   balanceSourceChart: document.querySelector("#balance-source-chart"),
-  balanceExecutionChart: document.querySelector("#balance-execution-chart"),
-  balanceDepartmentChart: document.querySelector("#balance-department-chart"),
 };
 
 let records = [];
@@ -81,6 +81,28 @@ const conceptColors = [
   "#d81b60",
   "#546e7a",
 ];
+const fundNames = new Map([
+  ["ACTI", "Asignación para la Ciencia, Tecnología e Innovación – Convocatorias"],
+  ["ADAN", "Asignaciones Directas 5% Anticipadas"],
+  ["ADIR", "Asignaciones Directas"],
+  ["AIL", "Inversión Local para municipios con Necesidades Básicas Insatisfechas y de cuarta, quinta y sexta categoría"],
+  ["AILA", "Inversión Local Ambiental y Desarrollo Sostenible"],
+  ["AIRD", "Asignación para la Inversión Regional 60%"],
+  ["AIRP", "Asignación para la Inversión Regional – Parágrafo 8° transitorio del artículo 361 de la Constitución Política"],
+  ["AIRR", "Asignación para la Inversión Regional 40%"],
+  ["ARGR", "Gestión del Riesgo"],
+  ["CTIA", "Asignación para la Ciencia, Tecnología e Innovación en Ambiente y Desarrollo Sostenible"],
+  ["DLAD", "Decretos Legislativos 574 y 798 de 2020 – Asignaciones Directas"],
+  ["GRAD", "Gestión del Riesgo – Asignaciones Directas"],
+  ["INCD", "Incentivo a la Producción, Exploración y Formalización"],
+  ["INCF", "Incentivo a la Exploración y a la Producción"],
+  ["IPAZ", "Incentivos a la Producción para la Paz"],
+  ["PAZI", "Proyectos de Infraestructura de Transporte para la Implementación del Acuerdo Final para la Paz – Parágrafo 8° transitorio del artículo 361 de la Constitución Política"],
+  ["REAC", "Asignación para la Inversión Regional a departamentos – artículo 209 de la Ley 2056 de 2020"],
+]);
+const fundColors = new Map(
+  [...fundNames.keys()].map((fund, index) => [fund, conceptColors[index % conceptColors.length]]),
+);
 const departmentColors = new Map([
   ["cesar", "#556b2f"],
   ["la guajira", "#f28c28"],
@@ -268,6 +290,7 @@ function updateMetrics(filtered) {
   const balance = sumBy(filtered, "balance");
   const assignedPercent = budget === 0 ? 0 : (assigned / budget) * 100;
   const balancePercent = budget === 0 ? 0 : (balance / budget) * 100;
+  const executionStatus = getExecutionStatus(assignedPercent);
   const formatPercent = (value) =>
     `${value.toLocaleString("es-CO", { maximumFractionDigits: 1 })}%`;
 
@@ -275,10 +298,12 @@ function updateMetrics(filtered) {
   elements.assignedValue.textContent = formatMoney(assigned);
   elements.balanceValue.textContent = formatMoney(balance);
   elements.budgetPercent.textContent = "100%";
-  elements.assignedPercent.textContent = formatPercent(assignedPercent);
+  elements.assignedPercent.textContent = `${formatPercent(assignedPercent)} · ${executionStatus.label}`;
+  elements.assignedPercent.className = `metric-percent execution-text-${executionStatus.key}`;
   elements.balancePercent.textContent = formatPercent(balancePercent);
   elements.budgetBar.style.width = "100%";
   elements.assignedBar.style.width = `${Math.min(Math.max(assignedPercent, 0), 100)}%`;
+  elements.assignedBar.className = `progress-fill execution-${executionStatus.key}`;
   elements.balanceBar.style.width = `${Math.min(Math.max(balancePercent, 0), 100)}%`;
 
   const municipalityCount = new Set(filtered.map((record) => record.municipality)).size;
@@ -331,6 +356,124 @@ function chartOptions() {
       },
     },
   };
+}
+
+const percentageLabelsPlugin = {
+  id: "percentageLabels",
+  afterDatasetsDraw(chart) {
+    const dataset = chart.data.datasets[0];
+    const elements = chart.getDatasetMeta(0).data;
+    const context = chart.ctx;
+    context.save();
+    context.font = '600 10px "Calibri Light", Calibri, sans-serif';
+    context.textAlign = "right";
+    context.textBaseline = "middle";
+    elements.forEach((element, index) => {
+      const value = Number(dataset.data[index]);
+      if (!Number.isFinite(value)) return;
+      const { x, y } = element.tooltipPosition();
+      const label = formatPercent(value);
+      const barWidth = Math.abs(element.x - element.base);
+      const fitsInside = barWidth > context.measureText(label).width + 10;
+      const background = dataset.backgroundColor[index];
+      context.fillStyle = fitsInside && isDarkColor(background) ? "#ffffff" : "#526573";
+      context.textAlign = fitsInside ? "right" : "left";
+      context.fillText(label, fitsInside ? x - 5 : x + 5, y);
+    });
+    context.restore();
+  },
+};
+
+const moneyLabelsPlugin = {
+  id: "moneyLabels",
+  afterDatasetsDraw(chart) {
+    const dataset = chart.data.datasets[0];
+    const elements = chart.getDatasetMeta(0).data;
+    const context = chart.ctx;
+    context.save();
+    context.font = '600 9px "Calibri Light", Calibri, sans-serif';
+    context.textBaseline = "middle";
+    elements.forEach((element, index) => {
+      const value = Number(dataset.data[index]);
+      if (!Number.isFinite(value)) return;
+      const { x, y } = element.tooltipPosition();
+      const label = compactMoneyFormat.format(value);
+      const barWidth = Math.abs(element.x - element.base);
+      const fitsInside = barWidth > context.measureText(label).width + 10;
+      const background = dataset.backgroundColor[index];
+      context.fillStyle = fitsInside && isDarkColor(background) ? "#ffffff" : "#526573";
+      context.textAlign = fitsInside ? "right" : "left";
+      context.fillText(label, fitsInside ? x - 5 : x + 5, y);
+    });
+    context.restore();
+  },
+};
+
+const balanceDetailsPlugin = {
+  id: "balanceDetails",
+  afterDatasetsDraw(chart) {
+    const assigned = chart.data.datasets[0];
+    const balance = chart.data.datasets[1];
+    const assignedMeta = chart.getDatasetMeta(0);
+    const balanceMeta = chart.getDatasetMeta(1);
+    const context = chart.ctx;
+    context.save();
+    context.font = '600 8px "Calibri Light", Calibri, sans-serif';
+    context.textBaseline = "middle";
+
+    assigned.data.forEach((value, index) => {
+      const budget = assigned.budgets[index];
+      const assignedAmount = assigned.amounts[index];
+      const balanceAmount = balance.amounts[index];
+      const assignedPercent = Number(value);
+      const balancePercent = Number(balance.data[index]);
+      const assignedBar = assignedMeta.data[index];
+      const balanceBar = balanceMeta.data[index];
+      if (!assignedBar || !balanceBar) return;
+
+      const assignedWidth = Math.abs(assignedBar.x - assignedBar.base);
+      const balanceWidth = Math.abs(balanceBar.x - balanceBar.base);
+      if (assignedWidth >= context.measureText(formatPercent(assignedPercent)).width + 8) {
+        context.fillStyle = isDarkColor(assigned.backgroundColor[index]) ? "#ffffff" : "#334155";
+        context.textAlign = "center";
+        context.fillText(formatPercent(assignedPercent), assignedBar.x - assignedWidth / 2, assignedBar.y);
+      }
+      if (balanceWidth >= context.measureText(formatPercent(balancePercent)).width + 8) {
+        context.fillStyle = "#334155";
+        context.textAlign = "center";
+        context.fillText(formatPercent(balancePercent), balanceBar.x - balanceWidth / 2, balanceBar.y);
+      }
+
+      const detailsY = assignedBar.y + 21;
+      const details = [
+        { label: "Presupuesto:", value: formatMoney(budget), color: "#7b8a93" },
+        { label: "Asignados:", value: formatMoney(assignedAmount), color: "#7b8a93" },
+        { label: "Saldo:", value: formatMoney(balanceAmount), color: "#7b8a93" },
+        {
+          label: "Ejec:",
+          value: formatPercent(assignedPercent),
+          color: getExecutionStatus(assignedPercent).color,
+        },
+      ];
+      let x = chart.chartArea.left;
+      context.textAlign = "left";
+      details.forEach((item) => {
+        const text = `${item.label} ${item.value}`;
+        context.fillStyle = item.color;
+        context.fillText(text, x, detailsY);
+        x += context.measureText(text).width + 14;
+      });
+    });
+    context.restore();
+  },
+};
+
+function isDarkColor(color) {
+  const hex = String(color).replace("#", "");
+  if (!/^[\da-f]{6}$/i.test(hex)) return true;
+  const channels = [0, 2, 4].map((index) => parseInt(hex.slice(index, index + 2), 16));
+  const luminance = (channels[0] * 299 + channels[1] * 587 + channels[2] * 114) / 1000;
+  return luminance < 155;
 }
 
 function destroyCharts() {
@@ -475,37 +618,103 @@ function renderCharts(filtered) {
 
 function renderFundingCharts(filtered) {
   if (!filtered.length) return;
-  const funds = [...aggregateBy(filtered, (record) => record.fund || "Sin fondo").entries()]
-    .map(([fund, values]) => ({ fund, ...values }))
-    .sort((a, b) => b.budget - a.budget);
-  const departments = uniqueSorted(filtered.map((record) => record.department));
-  const colors = ["#3185a5", "#3e9a80", "#d59a43", "#6177ad", "#bd6f52"];
   const metric = fundingMetric;
+  const funds = aggregateFundingSources(filtered).sort(
+    (a, b) => b[metric] - a[metric] || getFundName(a.fund).localeCompare(getFundName(b.fund), "es"),
+  );
+  const executionPercentages = funds.map((item) =>
+    item.budget === 0 ? 0 : (item.assigned / item.budget) * 100,
+  );
+  const maxExecution = Math.max(100, ...executionPercentages);
+  const executionLabels = funds.map((item) => shortenChartLabel(getFundName(item.fund)));
+  const chartHeight = Math.max(360, funds.length * 34 + 70);
+  elements.fundSourceChart.parentElement.style.height = `${chartHeight}px`;
+  elements.fundExecutionChart.parentElement.style.height = `${chartHeight}px`;
+  elements.fundCompositionChartWrap.style.height = "300px";
+
+  const totalBudget = sumBy(funds, "budget");
+  const fundBudgetShares = funds.map((fund) =>
+    totalBudget === 0 ? 0 : (fund.budget / totalBudget) * 100,
+  );
+  charts.fundComposition = new Chart(elements.fundCompositionChart, {
+    type: "doughnut",
+    data: {
+      labels: funds.map((item) => getFundName(item.fund)),
+      datasets: [
+        {
+          label: "Presupuesto de inversión",
+          data: funds.map((item) => item.budget),
+          backgroundColor: funds.map((item) => getFundColor(item.fund)),
+          borderColor: getComputedStyle(document.documentElement).getPropertyValue("--white").trim(),
+          borderWidth: 2,
+          hoverOffset: 6,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (items) => funds[items[0].dataIndex]
+              ? getFundName(funds[items[0].dataIndex].fund)
+              : "",
+            label: (context) =>
+              `${formatMoney(context.raw)} · ${formatPercent(fundBudgetShares[context.dataIndex])}`,
+          },
+        },
+      },
+    },
+  });
 
   charts.fundSource = new Chart(elements.fundSourceChart, {
     type: "bar",
     data: {
-      labels: funds.map((item) => item.fund),
-      datasets: departments.map((department, index) => ({
-        label: department,
-        data: funds.map((fund) =>
-          sumBy(
-            filtered.filter(
-              (record) => record.fund === fund.fund && record.department === department,
-            ),
-            metric,
-          ),
-        ),
-        backgroundColor: colors[index % colors.length],
+      labels: funds.map((item) => shortenChartLabel(getFundName(item.fund))),
+      datasets: [
+        {
+        label: metric === "balance" ? "Saldo disponible" : metric === "budget" ? "Presupuesto" : "Asignado",
+        data: funds.map((fund) => fund[metric]),
+        backgroundColor: funds.map((fund) => getFundColor(fund.fund)),
         borderRadius: 3,
-      })),
+        },
+      ],
     },
+    plugins: [moneyLabelsPlugin],
     options: {
       ...chartOptions(),
       indexAxis: "y",
+      plugins: {
+        ...chartOptions().plugins,
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (items) => getFundName(funds[items[0].dataIndex].fund),
+            label: (context) => {
+              const total = sumBy(funds, metric);
+              const share = total === 0 ? 0 : (context.raw / total) * 100;
+              return `${formatMoney(context.raw)} · ${formatPercent(share)} del total`;
+            },
+          },
+        },
+      },
       scales: {
-        x: { ...chartOptions().scales.x, stacked: true },
-        y: { ...chartOptions().scales.y, stacked: true },
+        x: {
+          ...chartOptions().scales.x,
+          ticks: {
+            ...chartOptions().scales.x.ticks,
+            callback: (value) => compactMoneyFormat.format(value),
+          },
+        },
+        y: {
+          ...chartOptions().scales.y,
+          ticks: {
+            ...chartOptions().scales.y.ticks,
+            font: { family: '"Calibri Light", Calibri, sans-serif', size: 9 },
+          },
+        },
       },
     },
   });
@@ -513,29 +722,51 @@ function renderFundingCharts(filtered) {
   charts.fundExecution = new Chart(elements.fundExecutionChart, {
     type: "bar",
     data: {
-      labels: funds.map((item) => item.fund),
+      labels: executionLabels,
       datasets: [
         {
           label: "Asignado del presupuesto",
-          data: funds.map((item) => (item.budget === 0 ? 0 : (item.assigned / item.budget) * 100)),
-          backgroundColor: "#3e9a80",
+          data: executionPercentages,
+          backgroundColor: executionPercentages.map(
+            (percentage) => getExecutionStatus(percentage).color,
+          ),
           borderRadius: 4,
         },
       ],
     },
+    plugins: [percentageLabelsPlugin],
     options: {
       ...chartOptions(),
       indexAxis: "y",
-      plugins: { ...chartOptions().plugins, legend: { display: false } },
+      plugins: {
+        ...chartOptions().plugins,
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (items) => getFundName(funds[items[0].dataIndex].fund),
+            label: (context) => {
+              const status = getExecutionStatus(context.raw);
+              return `${formatPercent(context.raw)} · ${status.label}`;
+            },
+          },
+        },
+      },
       scales: {
         x: {
           ...chartOptions().scales.x,
+          max: Math.ceil((maxExecution * 1.15) / 10) * 10,
           ticks: {
             ...chartOptions().scales.x.ticks,
             callback: (value) => `${Number(value).toLocaleString("es-CO")}%`,
           },
         },
-        y: chartOptions().scales.y,
+        y: {
+          ...chartOptions().scales.y,
+          ticks: {
+            ...chartOptions().scales.y.ticks,
+            font: { family: '"Calibri Light", Calibri, sans-serif', size: 9 },
+          },
+        },
       },
     },
   });
@@ -543,108 +774,82 @@ function renderFundingCharts(filtered) {
 
 function renderBalanceCharts(filtered) {
   if (!filtered.length) return;
-  const funds = [...aggregateBy(filtered, (record) => record.fund || "Sin fondo").entries()]
-    .map(([fund, values]) => ({ fund, ...values }))
-    .sort((a, b) => b.budget - a.budget);
-  const departments = uniqueSorted(filtered.map((record) => record.department));
-  const colors = ["#3185a5", "#3e9a80", "#d59a43", "#6177ad", "#bd6f52"];
+  const funds = aggregateFundingSources(filtered);
+  const executionPercentages = funds.map((fund) =>
+    fund.budget > 0 ? (fund.assigned / fund.budget) * 100 : 0,
+  );
+  const balancePercentages = funds.map((fund) =>
+    fund.budget > 0 ? (fund.balance / fund.budget) * 100 : 0,
+  );
+  const stackedPercentages = funds.map((_, index) =>
+    executionPercentages[index] + balancePercentages[index],
+  );
+  const maximumPercentage = Math.max(100, ...stackedPercentages);
+  const rowHeight = 68;
+  elements.balanceSourceChart.parentElement.style.height = `${Math.max(420, funds.length * rowHeight + 72)}px`;
 
   charts.balanceSource = new Chart(elements.balanceSourceChart, {
     type: "bar",
     data: {
-      labels: funds.map((item) => item.fund),
+      labels: funds.map((item) => wrapChartLabel(getFundName(item.fund), 38)),
       datasets: [
         {
-          label: "Presupuesto",
-          data: funds.map((item) => item.budget),
-          backgroundColor: "#3185a5",
-          borderRadius: 3,
-        },
-        {
-          label: "Asignado",
-          data: funds.map((item) => item.assigned),
-          backgroundColor: "#3e9a80",
-          borderRadius: 3,
+          label: "Asignados",
+          data: executionPercentages,
+          amounts: funds.map((item) => item.assigned),
+          budgets: funds.map((item) => item.budget),
+          backgroundColor: funds.map((item) => getFundColor(item.fund)),
+          borderRadius: { topLeft: 5, bottomLeft: 5 },
+          borderSkipped: false,
+          barThickness: 22,
         },
         {
           label: "Saldo pendiente",
-          data: funds.map((item) => item.balance),
-          backgroundColor: "#d59a43",
-          borderRadius: 3,
+          data: balancePercentages,
+          amounts: funds.map((item) => item.balance),
+          backgroundColor: funds.map((item) => getLightFundColor(item.fund)),
+          borderRadius: { topRight: 5, bottomRight: 5 },
+          borderSkipped: false,
+          barThickness: 22,
         },
       ],
     },
+    plugins: [balanceDetailsPlugin],
     options: {
       ...chartOptions(),
       indexAxis: "y",
+      layout: { padding: { bottom: 8, right: 12 } },
       plugins: {
         ...chartOptions().plugins,
+        legend: { display: false },
         tooltip: {
           callbacks: {
+            title: (items) => getFundName(funds[items[0].dataIndex].fund),
             label: (context) => {
               const fund = funds[context.dataIndex];
-              return `${context.dataset.label}: ${formatMoney(context.raw)} · Presupuesto: ${formatMoney(fund.budget)}`;
+              const percent = fund.budget > 0 ? (context.raw / fund.budget) * 100 : 0;
+              return `${context.dataset.label}: ${formatMoney(context.dataset.amounts[context.dataIndex])} · ${formatPercent(percent)} del presupuesto`;
             },
           },
         },
       },
-    },
-  });
-
-  charts.balanceExecution = new Chart(elements.balanceExecutionChart, {
-    type: "bar",
-    data: {
-      labels: funds.map((item) => item.fund),
-      datasets: [
-        {
-          label: "Ejecución",
-          data: funds.map((item) => (item.budget === 0 ? 0 : (item.assigned / item.budget) * 100)),
-          backgroundColor: "#3185a5",
-          borderRadius: 4,
-        },
-      ],
-    },
-    options: {
-      ...chartOptions(),
-      indexAxis: "y",
-      plugins: { ...chartOptions().plugins, legend: { display: false } },
       scales: {
         x: {
-          ...chartOptions().scales.x,
-          ticks: {
-            ...chartOptions().scales.x.ticks,
-            callback: (value) => `${Number(value).toLocaleString("es-CO")}%`,
-          },
+          stacked: true,
+          max: maximumPercentage * 1.04,
+          grid: { display: false, drawBorder: false },
+          ticks: { display: false },
+          border: { display: false },
         },
-        y: chartOptions().scales.y,
-      },
-    },
-  });
-
-  charts.balanceDepartments = new Chart(elements.balanceDepartmentChart, {
-    type: "bar",
-    data: {
-      labels: departments,
-      datasets: funds.map((fund, index) => ({
-        label: fund.fund,
-        data: departments.map((department) =>
-          sumBy(
-            filtered.filter(
-              (record) => record.fund === fund.fund && record.department === department,
-            ),
-            "balance",
-          ),
-        ),
-        backgroundColor: colors[index % colors.length],
-        borderRadius: 3,
-      })),
-    },
-    options: {
-      ...chartOptions(),
-      indexAxis: "y",
-      scales: {
-        x: { ...chartOptions().scales.x, stacked: true },
-        y: { ...chartOptions().scales.y, stacked: true },
+        y: {
+          stacked: true,
+          grid: { display: false },
+          ticks: {
+            color: "#526573",
+            font: { family: '"Calibri Light", Calibri, sans-serif', size: 9 },
+          },
+          border: { display: false },
+        },
       },
     },
   });
@@ -715,14 +920,23 @@ function renderTypeLabel(type) {
 function renderAssignedPercentage(assigned, budget) {
   const percentage = budget > 0 ? (assigned / budget) * 100 : 0;
   const barWidth = Math.min(Math.max(percentage, 0), 100);
+  const executionStatus = getExecutionStatus(percentage);
 
   return `
-    <div class="table-progress" role="progressbar" aria-label="Porcentaje asignado" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${barWidth.toFixed(1)}" aria-valuetext="${formatPercent(percentage)}">
+    <div class="table-progress" role="progressbar" aria-label="Porcentaje asignado" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${barWidth.toFixed(1)}" aria-valuetext="${formatPercent(percentage)} · ${executionStatus.label}">
       <span class="table-progress-track">
-        <span class="table-progress-fill" style="width: ${barWidth}%"></span>
+        <span class="table-progress-fill execution-${executionStatus.key}" style="width: ${barWidth}%"></span>
       </span>
-      <span class="table-progress-label">${formatPercent(percentage)}</span>
+      <span class="table-progress-label execution-text-${executionStatus.key}" title="${executionStatus.label}">${formatPercent(percentage)} · ${executionStatus.label}</span>
     </div>`;
+}
+
+function getExecutionStatus(percentage) {
+  if (percentage <= 30) return { key: "critical", label: "Crítico", color: "#dc3545" };
+  if (percentage <= 50) return { key: "low", label: "Bajo", color: "#f28c28" };
+  if (percentage <= 70) return { key: "medium", label: "Medio", color: "#f4c542" };
+  if (percentage <= 90) return { key: "good", label: "Bueno", color: "#8bcf8b" };
+  return { key: "high", label: "Alto", color: "#1b7a4b" };
 }
 
 function aggregateBy(items, keyOf) {
@@ -747,6 +961,58 @@ function aggregateBy(items, keyOf) {
   return groups;
 }
 
+function getFundName(fund) {
+  const code = String(fund).trim().toUpperCase();
+  return fundNames.get(code) || fund;
+}
+
+function getFundColor(fund) {
+  const code = String(fund).trim().toUpperCase();
+  const knownColor = fundColors.get(code);
+  if (knownColor) return knownColor;
+  const hash = [...code].reduce((value, character) => value + character.charCodeAt(0), 0);
+  return conceptColors[hash % conceptColors.length];
+}
+
+function getLightFundColor(fund) {
+  const color = getFundColor(fund).replace("#", "");
+  const channels = [0, 2, 4].map((index) => parseInt(color.slice(index, index + 2), 16));
+  const lightChannels = channels.map((channel) => Math.round(channel + (255 - channel) * 0.62));
+  return `#${lightChannels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function wrapChartLabel(label, maxLength = 42) {
+  const lines = [];
+  let line = "";
+  String(label)
+    .split(/\s+/)
+    .forEach((word) => {
+      if (line && `${line} ${word}`.length > maxLength) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = line ? `${line} ${word}` : word;
+      }
+    });
+  if (line) lines.push(line);
+  return lines;
+}
+
+function shortenChartLabel(label, maxLength = 25) {
+  const text = String(label);
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1).trimEnd()}…` : text;
+}
+
+function aggregateFundingSources(filtered) {
+  return [...aggregateBy(filtered, (record) => record.fund || "Sin fondo").entries()]
+    .map(([fund, values]) => ({ fund, ...values }))
+    .sort(
+      (a, b) =>
+        b.budget - a.budget ||
+        getFundName(a.fund).localeCompare(getFundName(b.fund), "es"),
+    );
+}
+
 function formatPercent(value) {
   return `${value.toLocaleString("es-CO", { maximumFractionDigits: 1 })}%`;
 }
@@ -768,21 +1034,22 @@ function renderFundingSummary(filtered) {
         a.fund.localeCompare(b.fund, "es") ||
         a.department.localeCompare(b.department, "es"),
     );
-  const totalBudget = sumBy(filtered, "budget");
-  const concepts = [
-    ...aggregateBy(filtered, (record) => record.concept || "Sin concepto").entries(),
-  ]
-    .map(([concept, values]) => ({ concept, ...values }))
-    .sort((a, b) => b.budget - a.budget || a.concept.localeCompare(b.concept, "es"));
+  const fundingSources = aggregateFundingSources(filtered);
+  const totalBudget = sumBy(fundingSources, "budget");
 
   elements.fundingCount.textContent = `${numberFormat.format(funds.length)} registros`;
-  elements.conceptCount.textContent = `${numberFormat.format(concepts.length)} conceptos`;
+  elements.fundCount.textContent = `${numberFormat.format(fundingSources.length)} fuentes`;
   elements.fundingBody.innerHTML = funds.length
     ? funds
         .map((fund) => {
             return `
             <tr>
-              <td>${escapeHtml(fund.fund)}</td>
+              <td>
+                <span class="fund-source-label">
+                  <span class="fund-source-swatch" style="--fund-color: ${getFundColor(fund.fund)}" aria-hidden="true"></span>
+                  ${escapeHtml(getFundName(fund.fund))}
+                </span>
+              </td>
               <td>${escapeHtml(fund.department)}</td>
               <td class="numeric">${formatMoney(fund.budget)}</td>
               <td class="numeric">${formatMoney(fund.assigned)}</td>
@@ -795,19 +1062,22 @@ function renderFundingSummary(filtered) {
         .join("")
     : '<tr class="table-empty"><td colspan="6">No hay fuentes para los filtros seleccionados.</td></tr>';
 
-  elements.compositionBody.innerHTML = concepts.length
-    ? concepts
-        .map((concept) => {
-          const share = totalBudget === 0 ? 0 : (concept.budget / totalBudget) * 100;
+  elements.fundCompositionLegend.innerHTML = fundingSources.length
+    ? fundingSources
+        .map((fund) => {
+          const share = totalBudget === 0 ? 0 : (fund.budget / totalBudget) * 100;
+          const color = getFundColor(fund.fund);
           return `
-            <tr>
-              <td title="${escapeHtml(concept.concept)}">${escapeHtml(concept.concept)}</td>
-              <td class="numeric">${formatMoney(concept.budget)}</td>
-              <td class="numeric">${formatPercent(share)}</td>
-            </tr>`;
+            <div class="concept-legend-item">
+              <span class="concept-legend-swatch" style="--concept-color: ${color}" aria-hidden="true"></span>
+              <span class="concept-legend-copy">
+                <span class="concept-legend-name" title="${escapeHtml(getFundName(fund.fund))}">${escapeHtml(getFundName(fund.fund))}</span>
+                <span class="concept-legend-value">${formatMoney(fund.budget)} · ${formatPercent(share)}</span>
+              </span>
+            </div>`;
         })
         .join("")
-    : '<tr class="table-empty"><td colspan="3">No hay conceptos para los filtros seleccionados.</td></tr>';
+    : '<p class="concept-legend-empty">No hay fuentes para los filtros seleccionados.</p>';
 }
 
 function renderRankingTable(body, rows, key, includesMunicipality = true) {
@@ -825,19 +1095,43 @@ function renderRankingTable(body, rows, key, includesMunicipality = true) {
         const medal = ["🥇", "🥈", "🥉"][index];
         const balancePercent =
           maxBalance === 0 ? 0 : Math.min(100, Math.max(0, (row.balance / maxBalance) * 100));
+        const executionPercent = row.budget > 0 ? (row.assigned / row.budget) * 100 : 0;
+        const executionWidth = Math.min(100, Math.max(0, executionPercent));
+        const executionStatus = getExecutionStatus(executionPercent);
         const balanceBar = `
-          <span
-            class="ranking-balance-track"
-            role="img"
-            aria-label="Saldo pendiente de asignación: ${escapeHtml(formatMoney(row.balance))}"
-            title="Saldo pendiente de asignación: ${escapeHtml(formatMoney(row.balance))}"
-          >
-            <span class="ranking-balance-fill" style="width: ${balancePercent}%"></span>
+          <span class="ranking-indicator">
+            <span class="ranking-indicator-label">Saldo pendiente</span>
+            <span
+              class="ranking-balance-track"
+              role="img"
+              aria-label="Saldo pendiente de asignación: ${escapeHtml(formatMoney(row.balance))}"
+              title="Saldo pendiente de asignación: ${escapeHtml(formatMoney(row.balance))}"
+            >
+              <span class="ranking-balance-fill" style="width: ${balancePercent}%"></span>
+            </span>
+          </span>`;
+        const executionBar = `
+          <span class="ranking-indicator ranking-execution">
+            <span class="ranking-indicator-label execution-text-${executionStatus.key}">
+              Ejecución: ${formatPercent(executionPercent)} · ${executionStatus.label}
+            </span>
+            <span
+              class="ranking-balance-track"
+              role="progressbar"
+              aria-label="Porcentaje de ejecución"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="${executionWidth.toFixed(1)}"
+              aria-valuetext="${formatPercent(executionPercent)} · ${executionStatus.label}"
+            >
+              <span class="ranking-balance-fill execution-${executionStatus.key}" style="width: ${executionWidth}%"></span>
+            </span>
           </span>`;
         const entityName = (name) => `
           <span class="ranking-entity">
             <span>${escapeHtml(name)}</span>
             ${balanceBar}
+            ${executionBar}
           </span>`;
 
         return `
@@ -857,6 +1151,7 @@ function renderRankingTable(body, rows, key, includesMunicipality = true) {
 }
 
 function renderRankings(filtered) {
+  const minimumRankingBalance = 100_000_000;
   const municipalities = filtered.filter(
     (record) => normalizeHeader(record.type) === normalizeHeader("Municipio"),
   );
@@ -870,49 +1165,71 @@ function renderRankings(filtered) {
     ).entries(),
   ].map(([key, values]) => {
     const [department, municipality] = JSON.parse(key);
-    return { department, municipality, assigned: values.assigned, balance: values.balance };
+    return {
+      department,
+      municipality,
+      budget: values.budget,
+      assigned: values.assigned,
+      balance: values.balance,
+    };
   });
   const departmentRanking = [
     ...aggregateBy(departments, (record) => record.department).entries(),
   ].map(([department, values]) => ({
     department,
+    budget: values.budget,
     assigned: values.assigned,
     balance: values.balance,
   }));
   const tieBreak = (a, b) =>
     a.department.localeCompare(b.department, "es") ||
     (a.municipality || "").localeCompare(b.municipality || "", "es");
+  const prioritizeRankingBalance = (compare) => (a, b) =>
+    Number(a.balance < minimumRankingBalance) - Number(b.balance < minimumRankingBalance) ||
+    compare(a, b);
 
   renderRankingTable(
     elements.highestBalanceBody,
-    [...municipalityRanking].sort((a, b) => b.balance - a.balance || tieBreak(a, b)),
+    [...municipalityRanking].sort(
+      prioritizeRankingBalance((a, b) => b.balance - a.balance || tieBreak(a, b)),
+    ),
     "balance",
   );
   renderRankingTable(
     elements.highestApprovedBody,
-    [...municipalityRanking].sort((a, b) => b.assigned - a.assigned || tieBreak(a, b)),
+    [...municipalityRanking].sort(
+      prioritizeRankingBalance((a, b) => b.assigned - a.assigned || tieBreak(a, b)),
+    ),
     "assigned",
   );
   renderRankingTable(
     elements.lowestApprovedBody,
-    [...municipalityRanking].sort((a, b) => a.assigned - b.assigned || tieBreak(a, b)),
+    [...municipalityRanking].sort(
+      prioritizeRankingBalance((a, b) => a.assigned - b.assigned || tieBreak(a, b)),
+    ),
     "assigned",
   );
   renderRankingTable(
     elements.departmentHighestBalanceBody,
-    [...departmentRanking].sort((a, b) => b.balance - a.balance || tieBreak(a, b)),
+    [...departmentRanking].sort(
+      prioritizeRankingBalance((a, b) => b.balance - a.balance || tieBreak(a, b)),
+    ),
     "balance",
     false,
   );
   renderRankingTable(
     elements.departmentHighestApprovedBody,
-    [...departmentRanking].sort((a, b) => b.assigned - a.assigned || tieBreak(a, b)),
+    [...departmentRanking].sort(
+      prioritizeRankingBalance((a, b) => b.assigned - a.assigned || tieBreak(a, b)),
+    ),
     "assigned",
     false,
   );
   renderRankingTable(
     elements.departmentLowestApprovedBody,
-    [...departmentRanking].sort((a, b) => a.assigned - b.assigned || tieBreak(a, b)),
+    [...departmentRanking].sort(
+      prioritizeRankingBalance((a, b) => a.assigned - b.assigned || tieBreak(a, b)),
+    ),
     "assigned",
     false,
   );
