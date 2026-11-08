@@ -856,7 +856,7 @@ function renderBalanceCharts(filtered) {
 }
 
 function renderTable(filtered) {
-  const sortedRecords = [...filtered].sort((a, b) => b.budget - a.budget);
+  const sortedRecords = [...filtered].sort((a, b) => b.balance - a.balance);
   const pageCount = Math.max(1, Math.ceil(sortedRecords.length / PAGE_SIZE));
   currentPage = Math.min(currentPage, pageCount);
   const start = (currentPage - 1) * PAGE_SIZE;
@@ -1336,7 +1336,7 @@ elements.nextPage.addEventListener("click", () => {
 
 async function loadBundledWorkbook() {
   try {
-    const response = await fetch("./datos_sgr.xlsx");
+    const response = await fetch("./datos_sgr.xlsx", { cache: "no-store" });
     if (!response.ok) {
       throw new Error(`No fue posible abrir el Excel incluido (HTTP ${response.status}).`);
     }
