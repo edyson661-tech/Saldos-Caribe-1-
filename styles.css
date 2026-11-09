@@ -447,7 +447,7 @@ h1 span {
 
 .filter-controls {
   display: grid;
-  grid-template-columns: minmax(200px, 0.8fr) minmax(200px, 0.8fr) 1fr;
+  grid-template-columns: repeat(3, minmax(160px, 0.8fr)) 1fr;
   align-items: end;
   gap: 15px;
   margin-top: 17px;

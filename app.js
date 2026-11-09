@@ -21,6 +21,7 @@ const elements = {
   errorMessage: document.querySelector("#error-message"),
   departmentFilter: document.querySelector("#department-filter"),
   municipalityFilter: document.querySelector("#municipality-filter"),
+  entityTypeFilter: document.querySelector("#entity-type-filter"),
   filterSummary: document.querySelector("#filter-summary"),
   budgetValue: document.querySelector("#budget-value"),
   budgetPercent: document.querySelector("#budget-percent"),
@@ -152,7 +153,7 @@ function getColumnIndexes(headerRow) {
     municipality: find("Municipio"),
     fund: find("Fondo"),
     concept: find("Concepto de gasto"),
-    type: find("Tipo"),
+    type: find("Tipo de entidad") !== -1 ? find("Tipo de entidad") : find("Tipo"),
     budget: find("Presupuesto de inversión"),
     assigned: find("Recursos aprobados y Asignados en SPGR"),
     balance: find("Saldo pendiente de asignación"),
@@ -250,16 +251,24 @@ function setOptions(select, values, allLabel) {
 
 function populateFilters() {
   const departments = uniqueSorted(records.map((record) => record.department));
+  const entityTypes = uniqueSorted(records.map((record) => record.type));
   elements.departmentFilter.disabled = false;
+  elements.entityTypeFilter.disabled = false;
   setOptions(elements.departmentFilter, departments, "Todos los departamentos");
+  setOptions(elements.entityTypeFilter, entityTypes, "Todos los tipos");
   updateMunicipalityOptions();
 }
 
 function updateMunicipalityOptions() {
   const department = elements.departmentFilter.value;
+  const entityType = elements.entityTypeFilter.value;
   const municipalities = uniqueSorted(
     records
-      .filter((record) => !department || record.department === department)
+      .filter(
+        (record) =>
+          (!department || record.department === department) &&
+          (!entityType || record.type === entityType),
+      )
       .map((record) => record.municipality),
   );
   elements.municipalityFilter.disabled = false;
@@ -269,10 +278,12 @@ function updateMunicipalityOptions() {
 function getFilteredRecords() {
   const department = elements.departmentFilter.value;
   const municipality = elements.municipalityFilter.value;
+  const entityType = elements.entityTypeFilter.value;
   return records.filter(
     (record) =>
       (!department || record.department === department) &&
-      (!municipality || record.municipality === municipality),
+      (!municipality || record.municipality === municipality) &&
+      (!entityType || record.type === entityType),
   );
 }
 
@@ -1316,8 +1327,15 @@ elements.municipalityFilter.addEventListener("change", () => {
   updateDashboard();
 });
 
+elements.entityTypeFilter.addEventListener("change", () => {
+  updateMunicipalityOptions();
+  currentPage = 1;
+  updateDashboard();
+});
+
 document.querySelector("#clear-filters").addEventListener("click", () => {
   elements.departmentFilter.value = "";
+  elements.entityTypeFilter.value = "";
   updateMunicipalityOptions();
   elements.municipalityFilter.value = "";
   currentPage = 1;
