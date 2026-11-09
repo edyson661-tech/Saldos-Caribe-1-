@@ -505,7 +505,7 @@ function renderCharts(filtered) {
         balance: sumBy(rows, "balance"),
       };
     })
-    .sort((a, b) => b.budget - a.budget);
+    .sort((a, b) => b.balance - a.balance || a.concept.localeCompare(b.concept, "es"));
 
   const chartHeight = Math.max(340, departments.length * 31 + 90, concepts.length * 25 + 90);
   elements.departmentChartWrap.style.height = `${chartHeight}px`;
